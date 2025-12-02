@@ -79,8 +79,8 @@ export namespace SessionSummary {
 
     const options = pipe(
       {},
-      mergeDeep(ProviderTransform.options(small.providerID, small.modelID, small.npm ?? "", assistantMsg.sessionID)),
-      mergeDeep(ProviderTransform.smallOptions({ providerID: small.providerID, modelID: small.modelID })),
+      mergeDeep(ProviderTransform.options(small.providerID, small.info, small.npm ?? "", assistantMsg.sessionID)),
+      mergeDeep(ProviderTransform.smallOptions({ providerID: small.providerID, model: small.info })),
       mergeDeep(small.info.options),
     )
 

@@ -273,7 +273,7 @@ export namespace Provider {
           project,
           location,
         },
-        async getModel(sdk: any, modelID: string) {
+        async getModel(sdk, modelID) {
           const id = String(modelID).trim()
           return sdk.languageModel(id)
         },
@@ -290,6 +290,14 @@ export namespace Provider {
         },
       }
     },
+  }
+
+  export type Model = {
+    providerID: string
+    modelID: string
+    language: LanguageModel
+    info: ModelsDev.Model
+    npm: string
   }
 
   const state = Instance.state(async () => {
@@ -314,19 +322,8 @@ export namespace Provider {
         options: Record<string, any>
       }
     } = {}
-    const models = new Map<
-      string,
-      {
-        providerID: string
-        modelID: string
-        info: ModelsDev.Model
-        language: LanguageModel
-        npm?: string
-      }
-    >()
+    const models = new Map<string, Model>()
     const sdk = new Map<number, SDK>()
-    // Maps `${provider}/${key}` to the provider’s actual model ID for custom aliases.
-    const realIdByKey = new Map<string, string>()
 
     log.info("init")
 
@@ -388,6 +385,7 @@ export namespace Provider {
         })
         const parsedModel: ModelsDev.Model = {
           id: modelID,
+          target: model.target ?? existing?.target ?? modelID,
           name,
           release_date: model.release_date ?? existing?.release_date,
           attachment: model.attachment ?? existing?.attachment ?? false,
@@ -424,9 +422,6 @@ export namespace Provider {
             },
           headers: model.headers,
           provider: model.provider ?? existing?.provider,
-        }
-        if (model.id && model.id !== modelID) {
-          realIdByKey.set(`${providerID}/${modelID}`, model.id)
         }
         parsed.models[modelID] = parsedModel
       }
@@ -520,31 +515,22 @@ export namespace Provider {
       }
 
       const configProvider = config.provider?.[providerID]
-      const filteredModels = Object.fromEntries(
-        Object.entries(provider.info.models)
-          // Filter out blacklisted models
-          .filter(
-            ([modelID]) =>
-              modelID !== "gpt-5-chat-latest" && !(providerID === "openrouter" && modelID === "openai/gpt-5-chat"),
-          )
-          // Filter out experimental models
-          .filter(
-            ([, model]) =>
-              ((!model.experimental && model.status !== "alpha") || Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) &&
-              model.status !== "deprecated",
-          )
-          // Filter by provider's whitelist/blacklist from config
-          .filter(([modelID]) => {
-            if (!configProvider) return true
 
-            return (
-              (!configProvider.blacklist || !configProvider.blacklist.includes(modelID)) &&
-              (!configProvider.whitelist || configProvider.whitelist.includes(modelID))
-            )
-          }),
-      )
-
-      provider.info.models = filteredModels
+      for (const [modelID, model] of Object.entries(provider.info.models)) {
+        model.target = model.target ?? model.id ?? modelID
+        if (modelID === "gpt-5-chat-latest" || (providerID === "openrouter" && modelID === "openai/gpt-5-chat"))
+          delete provider.info.models[modelID]
+        if (
+          ((model.status === "alpha" || model.experimental) && !Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) ||
+          model.status === "deprecated"
+        )
+          delete provider.info.models[modelID]
+        if (
+          (configProvider?.blacklist && configProvider.blacklist.includes(modelID)) ||
+          (configProvider?.whitelist && !configProvider.whitelist.includes(modelID))
+        )
+          delete provider.info.models[modelID]
+      }
 
       if (Object.keys(provider.info.models).length === 0) {
         delete providers[providerID]
@@ -558,7 +544,6 @@ export namespace Provider {
       models,
       providers,
       sdk,
-      realIdByKey,
     }
   })
 
@@ -566,19 +551,18 @@ export namespace Provider {
     return state().then((state) => state.providers)
   }
 
-  async function getSDK(provider: ModelsDev.Provider, model: ModelsDev.Model) {
-    return (async () => {
+  async function getSDK(npm: string, providerID: string) {
+    try {
       using _ = log.time("getSDK", {
-        providerID: provider.id,
+        providerID,
       })
       const s = await state()
-      const pkg = model.provider?.npm ?? provider.npm ?? provider.id
-      const options = { ...s.providers[provider.id]?.options }
-      if (pkg.includes("@ai-sdk/openai-compatible") && options["includeUsage"] === undefined) {
+      const options = { ...s.providers[providerID]?.options }
+      if (npm.includes("@ai-sdk/openai-compatible") && options["includeUsage"] !== false) {
         options["includeUsage"] = true
       }
 
-      const key = Bun.hash.xxHash32(JSON.stringify({ pkg, options }))
+      const key = Bun.hash.xxHash32(JSON.stringify({ pkg: npm, options }))
       const existing = s.sdk.get(key)
       if (existing) return existing
 
@@ -607,12 +591,12 @@ export namespace Provider {
       }
 
       // Special case: google-vertex-anthropic uses a subpath import
-      const bundledKey = provider.id === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : pkg
+      const bundledKey = providerID === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : npm
       const bundledFn = BUNDLED_PROVIDERS[bundledKey]
       if (bundledFn) {
-        log.info("using bundled provider", { providerID: provider.id, pkg: bundledKey })
+        log.info("using bundled provider", { providerID, pkg: bundledKey })
         const loaded = bundledFn({
-          name: provider.id,
+          name: providerID,
           ...options,
         })
         s.sdk.set(key, loaded)
@@ -620,25 +604,25 @@ export namespace Provider {
       }
 
       let installedPath: string
-      if (!pkg.startsWith("file://")) {
-        installedPath = await BunProc.install(pkg, "latest")
+      if (!npm.startsWith("file://")) {
+        installedPath = await BunProc.install(npm, "latest")
       } else {
-        log.info("loading local provider", { pkg })
-        installedPath = pkg
+        log.info("loading local provider", { pkg: npm })
+        installedPath = npm
       }
 
       const mod = await import(installedPath)
 
       const fn = mod[Object.keys(mod).find((key) => key.startsWith("create"))!]
       const loaded = fn({
-        name: provider.id,
+        name: providerID,
         ...options,
       })
       s.sdk.set(key, loaded)
       return loaded as SDK
-    })().catch((e) => {
-      throw new InitError({ providerID: provider.id }, { cause: e })
-    })
+    } catch (e) {
+      throw new InitError({ providerID }, { cause: e })
+    }
   }
 
   export async function getProvider(providerID: string) {
@@ -671,28 +655,27 @@ export namespace Provider {
       throw new ModelNotFoundError({ providerID, modelID, suggestions })
     }
 
-    const sdk = await getSDK(provider.info, info)
+    const npm = info.provider?.npm ?? provider.info.npm ?? info.id
+    const sdk = await getSDK(npm, providerID)
 
     try {
-      const keyReal = `${providerID}/${modelID}`
-      const realID = s.realIdByKey.get(keyReal) ?? info.id
       const language = provider.getModel
-        ? await provider.getModel(sdk, realID, provider.options)
-        : sdk.languageModel(realID)
+        ? await provider.getModel(sdk, info.target, provider.options)
+        : sdk.languageModel(info.target)
       log.info("found", { providerID, modelID })
       s.models.set(key, {
         providerID,
         modelID,
         info,
         language,
-        npm: info.provider?.npm ?? provider.info.npm,
+        npm,
       })
       return {
         modelID,
         providerID,
         info,
         language,
-        npm: info.provider?.npm ?? provider.info.npm,
+        npm,
       }
     } catch (e) {
       if (e instanceof NoSuchModelError)

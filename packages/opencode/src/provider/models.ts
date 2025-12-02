@@ -13,6 +13,7 @@ export namespace ModelsDev {
     .object({
       id: z.string(),
       name: z.string(),
+      target: z.string(),
       release_date: z.string(),
       attachment: z.boolean(),
       reasoning: z.boolean(),

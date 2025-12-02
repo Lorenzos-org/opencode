@@ -1,10 +1,11 @@
 import type { APICallError, ModelMessage } from "ai"
 import { unique } from "remeda"
 import type { JSONSchema } from "zod/v4/core"
+import type { ModelsDev } from "./models"
 
 export namespace ProviderTransform {
-  function normalizeMessages(msgs: ModelMessage[], providerID: string, modelID: string): ModelMessage[] {
-    if (modelID.includes("claude")) {
+  function normalizeMessages(msgs: ModelMessage[], providerID: string, model: ModelsDev.Model): ModelMessage[] {
+    if (model.target.includes("claude")) {
       return msgs.map((msg) => {
         if ((msg.role === "assistant" || msg.role === "tool") && Array.isArray(msg.content)) {
           msg.content = msg.content.map((part) => {
@@ -20,7 +21,7 @@ export namespace ProviderTransform {
         return msg
       })
     }
-    if (providerID === "mistral" || modelID.toLowerCase().includes("mistral")) {
+    if (providerID === "mistral" || model.target.toLowerCase().includes("mistral")) {
       const result: ModelMessage[] = []
       for (let i = 0; i < msgs.length; i++) {
         const msg = msgs[i]
@@ -107,30 +108,30 @@ export namespace ProviderTransform {
     return msgs
   }
 
-  export function message(msgs: ModelMessage[], providerID: string, modelID: string) {
-    msgs = normalizeMessages(msgs, providerID, modelID)
-    if (providerID === "anthropic" || modelID.includes("anthropic") || modelID.includes("claude")) {
+  export function message(msgs: ModelMessage[], providerID: string, model: ModelsDev.Model) {
+    msgs = normalizeMessages(msgs, providerID, model)
+    if (providerID === "anthropic" || model.target.includes("anthropic") || model.target.includes("claude")) {
       msgs = applyCaching(msgs, providerID)
     }
 
     return msgs
   }
 
-  export function temperature(_providerID: string, modelID: string) {
-    if (modelID.toLowerCase().includes("qwen")) return 0.55
-    if (modelID.toLowerCase().includes("claude")) return undefined
-    if (modelID.toLowerCase().includes("gemini-3-pro")) return 1.0
+  export function temperature(model: ModelsDev.Model) {
+    if (model.target.toLowerCase().includes("qwen")) return 0.55
+    if (model.target.toLowerCase().includes("claude")) return undefined
+    if (model.target.toLowerCase().includes("gemini-3-pro")) return 1.0
     return 0
   }
 
-  export function topP(_providerID: string, modelID: string) {
-    if (modelID.toLowerCase().includes("qwen")) return 1
+  export function topP(model: ModelsDev.Model) {
+    if (model.target.toLowerCase().includes("qwen")) return 1
     return undefined
   }
 
   export function options(
     providerID: string,
-    modelID: string,
+    model: ModelsDev.Model,
     npm: string,
     sessionID: string,
     providerOptions?: Record<string, any>,
@@ -148,22 +149,22 @@ export namespace ProviderTransform {
       result["promptCacheKey"] = sessionID
     }
 
-    if (providerID === "google" || (providerID.startsWith("opencode") && modelID.includes("gemini-3"))) {
+    if (providerID === "google" || (providerID.startsWith("opencode") && model.target.includes("gemini-3"))) {
       result["thinkingConfig"] = {
         includeThoughts: true,
       }
     }
 
-    if (modelID.includes("gpt-5") && !modelID.includes("gpt-5-chat")) {
-      if (modelID.includes("codex")) {
+    if (model.target.includes("gpt-5") && !model.target.includes("gpt-5-chat")) {
+      if (model.target.includes("codex")) {
         result["store"] = false
       }
 
-      if (!modelID.includes("codex") && !modelID.includes("gpt-5-pro")) {
+      if (!model.target.includes("codex") && !model.target.includes("gpt-5-pro")) {
         result["reasoningEffort"] = "medium"
       }
 
-      if (modelID.endsWith("gpt-5.1") && providerID !== "azure") {
+      if (model.target.endsWith("gpt-5.1") && providerID !== "azure") {
         result["textVerbosity"] = "low"
       }
 
@@ -176,11 +177,11 @@ export namespace ProviderTransform {
     return result
   }
 
-  export function smallOptions(input: { providerID: string; modelID: string }) {
+  export function smallOptions(input: { providerID: string; model: ModelsDev.Model }) {
     const options: Record<string, any> = {}
 
-    if (input.providerID === "openai" || input.modelID.includes("gpt-5")) {
-      if (input.modelID.includes("5.1")) {
+    if (input.providerID === "openai" || input.model.target.includes("gpt-5")) {
+      if (input.model.target.includes("5.1")) {
         options["reasoningEffort"] = "low"
       } else {
         options["reasoningEffort"] = "minimal"
@@ -254,7 +255,7 @@ export namespace ProviderTransform {
     return standardLimit
   }
 
-  export function schema(providerID: string, modelID: string, schema: JSONSchema.BaseSchema) {
+  export function schema(providerID: string, model: ModelsDev.Model, schema: JSONSchema.BaseSchema) {
     /*
     if (["openai", "azure"].includes(providerID)) {
       if (schema.type === "object" && schema.properties) {
@@ -274,7 +275,7 @@ export namespace ProviderTransform {
     */
 
     // Convert integer enums to string enums for Google/Gemini
-    if (providerID === "google" || modelID.includes("gemini")) {
+    if (providerID === "google" || model.target.includes("gemini")) {
       const sanitizeGemini = (obj: any): any => {
         if (obj === null || typeof obj !== "object") {
           return obj

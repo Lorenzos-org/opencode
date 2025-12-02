@@ -1,4 +1,4 @@
-import { streamText, wrapLanguageModel, type ModelMessage } from "ai"
+import { wrapLanguageModel, type ModelMessage } from "ai"
 import { Session } from "."
 import { Identifier } from "../id/id"
 import { Instance } from "../project/instance"
@@ -130,75 +130,73 @@ export namespace SessionCompaction {
       model: model.info,
       abort: input.abort,
     })
-    const result = await processor.process(() =>
-      streamText({
-        onError(error) {
-          log.error("stream error", {
-            error,
-          })
-        },
-        // set to 0, we handle loop
-        maxRetries: 0,
-        providerOptions: ProviderTransform.providerOptions(
-          model.npm,
-          model.providerID,
-          pipe(
-            {},
-            mergeDeep(ProviderTransform.options(model.providerID, model.modelID, model.npm ?? "", input.sessionID)),
-            mergeDeep(model.info.options),
-          ),
+    const result = await processor.process({
+      onError(error) {
+        log.error("stream error", {
+          error,
+        })
+      },
+      // set to 0, we handle loop
+      maxRetries: 0,
+      providerOptions: ProviderTransform.providerOptions(
+        model.npm,
+        model.providerID,
+        pipe(
+          {},
+          mergeDeep(ProviderTransform.options(model.providerID, model.info, model.npm ?? "", input.sessionID)),
+          mergeDeep(model.info.options),
         ),
-        headers: model.info.headers,
-        abortSignal: input.abort,
-        tools: model.info.tool_call ? {} : undefined,
-        messages: [
-          ...system.map(
-            (x): ModelMessage => ({
-              role: "system",
-              content: x,
-            }),
-          ),
-          ...MessageV2.toModelMessage(
-            input.messages.filter((m) => {
-              if (m.info.role !== "assistant" || m.info.error === undefined) {
-                return true
-              }
-              if (
-                MessageV2.AbortedError.isInstance(m.info.error) &&
-                m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
-              ) {
-                return true
-              }
+      ),
+      headers: model.info.headers,
+      abortSignal: input.abort,
+      tools: model.info.tool_call ? {} : undefined,
+      messages: [
+        ...system.map(
+          (x): ModelMessage => ({
+            role: "system",
+            content: x,
+          }),
+        ),
+        ...MessageV2.toModelMessage(
+          input.messages.filter((m) => {
+            if (m.info.role !== "assistant" || m.info.error === undefined) {
+              return true
+            }
+            if (
+              MessageV2.AbortedError.isInstance(m.info.error) &&
+              m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
+            ) {
+              return true
+            }
 
-              return false
-            }),
-          ),
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Summarize our conversation above. This summary will be the only context available when the conversation continues, so preserve critical information including: what was accomplished, current work in progress, files involved, next steps, and any key user requests or constraints. Be concise but detailed enough that work can continue seamlessly.",
-              },
-            ],
-          },
-        ],
-        model: wrapLanguageModel({
-          model: model.language,
-          middleware: [
+            return false
+          }),
+        ),
+        {
+          role: "user",
+          content: [
             {
-              async transformParams(args) {
-                if (args.type === "stream") {
-                  // @ts-expect-error
-                  args.params.prompt = ProviderTransform.message(args.params.prompt, model.providerID, model.modelID)
-                }
-                return args.params
-              },
+              type: "text",
+              text: "Summarize our conversation above. This summary will be the only context available when the conversation continues, so preserve critical information including: what was accomplished, current work in progress, files involved, next steps, and any key user requests or constraints. Be concise but detailed enough that work can continue seamlessly.",
             },
           ],
-        }),
+        },
+      ],
+      model: wrapLanguageModel({
+        model: model.language,
+        middleware: [
+          {
+            async transformParams(args) {
+              if (args.type === "stream") {
+                // @ts-expect-error
+                args.params.prompt = ProviderTransform.message(args.params.prompt, model.providerID, model.modelID)
+              }
+              return args.params
+            },
+          },
+        ],
       }),
-    )
+    })
     if (result === "continue" && input.auto) {
       const continueMsg = await Session.updateMessage({
         id: Identifier.ascending("message"),

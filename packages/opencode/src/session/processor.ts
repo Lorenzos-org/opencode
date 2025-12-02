@@ -1,6 +1,6 @@
 import type { ModelsDev } from "@/provider/models"
 import { MessageV2 } from "./message-v2"
-import { type StreamTextResult, type Tool as AITool, APICallError } from "ai"
+import { streamText } from "ai"
 import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
 import { Session } from "."
@@ -18,6 +18,15 @@ export namespace SessionProcessor {
 
   export type Info = Awaited<ReturnType<typeof create>>
   export type Result = Awaited<ReturnType<Info["process"]>>
+
+  export type StreamInput = Parameters<typeof streamText>[0]
+
+  export type TBD = {
+    model: {
+      modelID: string
+      providerID: string
+    }
+  }
 
   export function create(input: {
     assistantMessage: MessageV2.Assistant
@@ -38,13 +47,13 @@ export namespace SessionProcessor {
       partFromToolCall(toolCallID: string) {
         return toolcalls[toolCallID]
       },
-      async process(fn: () => StreamTextResult<Record<string, AITool>, never>) {
+      async process(streamInput: StreamInput) {
         log.info("process")
         while (true) {
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
-            const stream = fn()
+            const stream = streamText(streamInput)
 
             for await (const value of stream.fullStream) {
               input.abort.throwIfAborted()

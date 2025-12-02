@@ -11,7 +11,6 @@ import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
 import {
   generateText,
-  streamText,
   type ModelMessage,
   type Tool as AITool,
   tool,
@@ -48,6 +47,7 @@ import { fn } from "@/util/fn"
 import { SessionProcessor } from "./processor"
 import { TaskTool } from "@/tool/task"
 import { SessionStatus } from "./status"
+import type { ModelsDev } from "@/provider/models"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -469,14 +469,15 @@ export namespace SessionPrompt {
       })
       const system = await resolveSystemPrompt({
         providerID: model.providerID,
-        modelID: model.info.id,
+        model: model.info,
         agent,
         system: lastUser.system,
       })
       const tools = await resolveTools({
         agent,
         sessionID,
-        model: lastUser.model,
+        providerID: model.providerID,
+        model: model.info,
         tools: lastUser.tools,
         processor,
       })
@@ -492,14 +493,12 @@ export namespace SessionPrompt {
         },
         {
           temperature: model.info.temperature
-            ? (agent.temperature ?? ProviderTransform.temperature(model.providerID, model.modelID))
+            ? (agent.temperature ?? ProviderTransform.temperature(model.info))
             : undefined,
-          topP: agent.topP ?? ProviderTransform.topP(model.providerID, model.modelID),
+          topP: agent.topP ?? ProviderTransform.topP(model.info),
           options: pipe(
             {},
-            mergeDeep(
-              ProviderTransform.options(model.providerID, model.modelID, model.npm ?? "", sessionID, provider?.options),
-            ),
+            mergeDeep(ProviderTransform.options(model.providerID, model.info, model.npm, sessionID, provider?.options)),
             mergeDeep(model.info.options),
             mergeDeep(agent.options),
           ),
@@ -513,113 +512,111 @@ export namespace SessionPrompt {
         })
       }
 
-      const result = await processor.process(() =>
-        streamText({
-          onError(error) {
-            log.error("stream error", {
-              error,
+      const result = await processor.process({
+        onError(error) {
+          log.error("stream error", {
+            error,
+          })
+        },
+        async experimental_repairToolCall(input) {
+          const lower = input.toolCall.toolName.toLowerCase()
+          if (lower !== input.toolCall.toolName && tools[lower]) {
+            log.info("repairing tool call", {
+              tool: input.toolCall.toolName,
+              repaired: lower,
             })
-          },
-          async experimental_repairToolCall(input) {
-            const lower = input.toolCall.toolName.toLowerCase()
-            if (lower !== input.toolCall.toolName && tools[lower]) {
-              log.info("repairing tool call", {
-                tool: input.toolCall.toolName,
-                repaired: lower,
-              })
-              return {
-                ...input.toolCall,
-                toolName: lower,
-              }
-            }
             return {
               ...input.toolCall,
-              input: JSON.stringify({
-                tool: input.toolCall.toolName,
-                error: input.error.message,
-              }),
-              toolName: "invalid",
+              toolName: lower,
             }
-          },
-          headers: {
-            ...(model.providerID.startsWith("opencode")
-              ? {
-                  "x-opencode-project": Instance.project.id,
-                  "x-opencode-session": sessionID,
-                  "x-opencode-request": lastUser.id,
-                }
-              : undefined),
-            ...model.info.headers,
-          },
-          // set to 0, we handle loop
-          maxRetries: 0,
-          activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
-          maxOutputTokens: ProviderTransform.maxOutputTokens(
-            model.providerID,
-            params.options,
-            model.info.limit.output,
-            OUTPUT_TOKEN_MAX,
+          }
+          return {
+            ...input.toolCall,
+            input: JSON.stringify({
+              tool: input.toolCall.toolName,
+              error: input.error.message,
+            }),
+            toolName: "invalid",
+          }
+        },
+        headers: {
+          ...(model.providerID.startsWith("opencode")
+            ? {
+                "x-opencode-project": Instance.project.id,
+                "x-opencode-session": sessionID,
+                "x-opencode-request": lastUser.id,
+              }
+            : undefined),
+          ...model.info.headers,
+        },
+        // set to 0, we handle loop
+        maxRetries: 0,
+        activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
+        maxOutputTokens: ProviderTransform.maxOutputTokens(
+          model.providerID,
+          params.options,
+          model.info.limit.output,
+          OUTPUT_TOKEN_MAX,
+        ),
+        abortSignal: abort,
+        providerOptions: ProviderTransform.providerOptions(model.npm, model.providerID, params.options),
+        stopWhen: stepCountIs(1),
+        temperature: params.temperature,
+        topP: params.topP,
+        messages: [
+          ...system.map(
+            (x): ModelMessage => ({
+              role: "system",
+              content: x,
+            }),
           ),
-          abortSignal: abort,
-          providerOptions: ProviderTransform.providerOptions(model.npm, model.providerID, params.options),
-          stopWhen: stepCountIs(1),
-          temperature: params.temperature,
-          topP: params.topP,
-          messages: [
-            ...system.map(
-              (x): ModelMessage => ({
-                role: "system",
-                content: x,
-              }),
-            ),
-            ...MessageV2.toModelMessage(
-              msgs.filter((m) => {
-                if (m.info.role !== "assistant" || m.info.error === undefined) {
-                  return true
-                }
-                if (
-                  MessageV2.AbortedError.isInstance(m.info.error) &&
-                  m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
-                ) {
-                  return true
-                }
+          ...MessageV2.toModelMessage(
+            msgs.filter((m) => {
+              if (m.info.role !== "assistant" || m.info.error === undefined) {
+                return true
+              }
+              if (
+                MessageV2.AbortedError.isInstance(m.info.error) &&
+                m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
+              ) {
+                return true
+              }
 
-                return false
-              }),
-            ),
-          ],
-          tools: model.info.tool_call === false ? undefined : tools,
-          model: wrapLanguageModel({
-            model: model.language,
-            middleware: [
-              {
-                async transformParams(args) {
-                  if (args.type === "stream") {
-                    // @ts-expect-error
-                    args.params.prompt = ProviderTransform.message(args.params.prompt, model.providerID, model.modelID)
-                  }
-                  // Transform tool schemas for provider compatibility
-                  if (args.params.tools && Array.isArray(args.params.tools)) {
-                    args.params.tools = args.params.tools.map((tool: any) => {
-                      // Tools at middleware level have inputSchema, not parameters
-                      if (tool.inputSchema && typeof tool.inputSchema === "object") {
-                        // Transform the inputSchema for provider compatibility
-                        return {
-                          ...tool,
-                          inputSchema: ProviderTransform.schema(model.providerID, model.modelID, tool.inputSchema),
-                        }
+              return false
+            }),
+          ),
+        ],
+        tools: model.info.tool_call === false ? undefined : tools,
+        model: wrapLanguageModel({
+          model: model.language,
+          middleware: [
+            {
+              async transformParams(args) {
+                if (args.type === "stream") {
+                  // @ts-expect-error
+                  args.params.prompt = ProviderTransform.message(args.params.prompt, model.providerID, model.info)
+                }
+                // Transform tool schemas for provider compatibility
+                if (args.params.tools && Array.isArray(args.params.tools)) {
+                  args.params.tools = args.params.tools.map((tool: any) => {
+                    // Tools at middleware level have inputSchema, not parameters
+                    if (tool.inputSchema && typeof tool.inputSchema === "object") {
+                      // Transform the inputSchema for provider compatibility
+                      return {
+                        ...tool,
+                        inputSchema: ProviderTransform.schema(model.providerID, model.info, tool.inputSchema),
                       }
-                      // If no inputSchema, return tool unchanged
-                      return tool
-                    })
-                  }
-                  return args.params
-                },
+                    }
+                    // If no inputSchema, return tool unchanged
+                    return tool
+                  })
+                }
+                return args.params
               },
-            ],
-          }),
+            },
+          ],
         }),
-      )
+      })
       if (result === "stop") break
       continue
     }
@@ -646,14 +643,14 @@ export namespace SessionPrompt {
     system?: string
     agent: Agent.Info
     providerID: string
-    modelID: string
+    model: ModelsDev.Model
   }) {
     let system = SystemPrompt.header(input.providerID)
     system.push(
       ...(() => {
         if (input.system) return [input.system]
         if (input.agent.prompt) return [input.agent.prompt]
-        return SystemPrompt.provider(input.modelID)
+        return SystemPrompt.provider(input.model)
       })(),
     )
     system.push(...(await SystemPrompt.environment()))
@@ -666,10 +663,8 @@ export namespace SessionPrompt {
 
   async function resolveTools(input: {
     agent: Agent.Info
-    model: {
-      providerID: string
-      modelID: string
-    }
+    providerID: string
+    model: ModelsDev.Model
     sessionID: string
     tools?: Record<string, boolean>
     processor: SessionProcessor.Info
@@ -677,16 +672,12 @@ export namespace SessionPrompt {
     const tools: Record<string, AITool> = {}
     const enabledTools = pipe(
       input.agent.tools,
-      mergeDeep(await ToolRegistry.enabled(input.model.providerID, input.model.modelID, input.agent)),
+      mergeDeep(await ToolRegistry.enabled(input.agent)),
       mergeDeep(input.tools ?? {}),
     )
-    for (const item of await ToolRegistry.tools(input.model.providerID, input.model.modelID)) {
+    for (const item of await ToolRegistry.tools(input.providerID)) {
       if (Wildcard.all(item.id, enabledTools) === false) continue
-      const schema = ProviderTransform.schema(
-        input.model.providerID,
-        input.model.modelID,
-        z.toJSONSchema(item.parameters),
-      )
+      const schema = ProviderTransform.schema(input.providerID, input.model, z.toJSONSchema(item.parameters))
       tools[item.id] = tool({
         id: item.id as any,
         description: item.description,
@@ -1441,15 +1432,9 @@ export namespace SessionPrompt {
     const options = pipe(
       {},
       mergeDeep(
-        ProviderTransform.options(
-          small.providerID,
-          small.modelID,
-          small.npm ?? "",
-          input.session.id,
-          provider?.options,
-        ),
+        ProviderTransform.options(small.providerID, small.info, small.npm ?? "", input.session.id, provider?.options),
       ),
-      mergeDeep(ProviderTransform.smallOptions({ providerID: small.providerID, modelID: small.modelID })),
+      mergeDeep(ProviderTransform.smallOptions({ providerID: small.providerID, model: small.info })),
       mergeDeep(small.info.options),
     )
     await generateText({
