@@ -381,13 +381,13 @@ export namespace Provider {
       headers: model.headers ?? {},
       options: model.options ?? {},
       cost: {
-        input: model.cost.input,
-        output: model.cost.output,
+        input: model.cost?.input ?? 0,
+        output: model.cost?.output ?? 0,
         cache: {
-          read: model.cost.cache_read ?? 0,
-          write: model.cost.cache_write ?? 0,
+          read: model.cost?.cache_read ?? 0,
+          write: model.cost?.cache_write ?? 0,
         },
-        experimentalOver200K: model.cost.context_over_200k
+        experimentalOver200K: model.cost?.context_over_200k
           ? {
               cache: {
                 read: model.cost.context_over_200k.cache_read ?? 0,
