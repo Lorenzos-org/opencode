@@ -1,3 +1,6 @@
+# 📦 SDK generation for Lorenzos-org/opencode fork
+# 🚨 SAFETY: Generates SDK from private fork, not upstream
+# Repository: https://github.com/Lorenzos-org/opencode
 name: sdk
 
 on:

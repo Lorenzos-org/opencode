@@ -1,3 +1,6 @@
+# 🔍 mgrep-sync: Semantic search indexing for Lorenzos-org/opencode fork
+# 🚨 SAFETY: This workflow ONLY runs on the private fork, never upstream
+# Repository: https://github.com/Lorenzos-org/opencode
 name: mgrep-sync
 
 on:

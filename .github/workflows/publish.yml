@@ -1,3 +1,6 @@
+# 🚨 SAFETY: This workflow runs on the Lorenzos-org/opencode fork
+# NEVER modify to push to sst/opencode upstream repository
+# All releases go through the private fork workflow
 name: publish
 run-name: "${{ format('release {0}', inputs.bump) }}"
 
@@ -26,7 +29,7 @@ permissions:
 jobs:
   publish:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.repository == 'sst/opencode'
+    if: github.repository == 'Lorenzos-org/opencode'
     steps:
       - uses: actions/checkout@v3
         with:

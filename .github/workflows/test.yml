@@ -1,3 +1,6 @@
+# 🧪 Test suite for Lorenzos-org/opencode fork
+# 🚨 SAFETY: Runs tests on private fork, not upstream
+# Repository: https://github.com/Lorenzos-org/opencode
 name: test
 
 on:

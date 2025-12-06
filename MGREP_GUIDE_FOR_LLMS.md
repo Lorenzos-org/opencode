@@ -1,5 +1,47 @@
 # 🔍 mgrep Complete Guide for LLMs
 
+## ⚠️ **CRITICAL: Repository Safety Configuration**
+
+### **Git Remote Setup (MANDATORY - Do Not Change)**
+
+This repository uses a **forked workflow** with strict safety measures:
+
+```bash
+# Current remote configuration (DO NOT MODIFY):
+$ git remote -v
+origin	https://github.com/Lorenzos-org/opencode.git (fetch)
+origin	https://github.com/Lorenzos-org/opencode.git (push)    # ← SAFE TO PUSH HERE
+upstream	https://github.com/sst/opencode.git (fetch)        # ← ONLY FETCH FROM HERE
+upstream	no-pushing-allowed (push)                         # ← PUSH BLOCKED FOR SAFETY
+```
+
+### **🚨 ABSOLUTE RULES:**
+
+1. **✅ PUSH ONLY TO**: `origin` (Lorenzos-org/opencode) - your private fork
+2. **✅ FETCH ONLY FROM**: `upstream` (sst/opencode) - original repository
+3. **❌ NEVER PUSH TO**: `upstream` (sst/opencode) - will fail with "no-pushing-allowed"
+4. **❌ NEVER COMMIT DIRECTLY TO**: `sst/opencode` upstream repository
+
+### **🛡️ Safety Measures:**
+
+- **Push URL blocked**: Upstream push URL is set to invalid value
+- **Fork-only workflow**: All changes go through private fork first
+- **No direct upstream access**: Prevents accidental upstream modifications
+
+### **📋 Workflow:**
+
+```bash
+# ✅ Safe operations:
+git push origin dev                    # Push to your fork
+git fetch upstream                     # Get upstream updates
+git pull upstream dev                  # Merge upstream changes
+
+# ❌ Blocked operations (will fail):
+git push upstream dev                  # ❌ BLOCKED - push to upstream
+```
+
+---
+
 ## What is mgrep?
 
 **mgrep** (Mixedbread grep) is a semantic search tool that allows you to search through your codebase using natural language queries instead of traditional regex patterns. It's designed as an AI-powered complement to traditional `grep`, offering:

@@ -1,3 +1,6 @@
+# 🚀 Deploy workflow for Lorenzos-org/opencode fork
+# 🚨 SAFETY: Deploys from private fork, not upstream repository
+# Repository: https://github.com/Lorenzos-org/opencode
 name: deploy
 
 on:
