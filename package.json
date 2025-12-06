@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "bun run --cwd packages/opencode --conditions=browser src/index.ts",
     "typecheck": "bun turbo typecheck",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "prepare": "husky",
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'"
@@ -50,7 +52,10 @@
       "@solidjs/router": "0.15.4",
       "@solidjs/start": "https://pkg.pr.new/@solidjs/start@dfb2020",
       "solid-js": "1.9.10",
-      "vite-plugin-solid": "2.11.10"
+      "vite-plugin-solid": "2.11.10",
+      "@typescript-eslint/eslint-plugin": "8.24.1",
+      "@typescript-eslint/parser": "8.24.1",
+      "eslint": "9.22.0"
     }
   },
   "devDependencies": {
