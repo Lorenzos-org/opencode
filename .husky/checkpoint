@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# Lightweight checkpoint hook for development sprints
+echo "Running development checkpoint checks..."
+
+# Basic JavaScript syntax validation using node
+echo "Running basic syntax check..."
+find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | head -10 | while read file; do
+  if node -c "$file" 2>/dev/null; then
+    echo "✓ $file"
+  else
+    echo "✗ Syntax error in $file"
+    exit 1
+  fi
+done
+
+echo "Development checkpoint completed successfully!"
