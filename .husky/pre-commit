@@ -1,0 +1,23 @@
+#!/bin/sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Pre-commit quality gates
+echo "Running pre-commit checks..."
+
+# Typecheck
+echo "Running typecheck..."
+bun typecheck
+if [ $? -ne 0 ]; then
+  echo "Typecheck failed. Please fix type errors before committing."
+  exit 1
+fi
+
+# Prettier check
+echo "Running prettier check..."
+bunx prettier --check .
+if [ $? -ne 0 ]; then
+  echo "Prettier check failed. Please format your code with 'bunx prettier --write .' before committing."
+  exit 1
+fi
+
+echo "All pre-commit checks passed!"
