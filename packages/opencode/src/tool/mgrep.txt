@@ -1,0 +1,8 @@
+- Semantic search tool for your local files that understands natural language queries
+- Searches file contents using semantic understanding rather than exact patterns
+- Supports natural language queries (eg. "where is authentication setup", "how are chunks defined", etc.)
+- Filter by directory path to narrow search scope
+- Returns relevant file paths with line ranges and content snippets
+- Use this tool instead of grep for better search results
+- Works alongside traditional grep for exact pattern matching
+- If you need AI-generated answers based on search results, use the 'a' parameter

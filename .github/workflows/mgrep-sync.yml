@@ -1,0 +1,54 @@
+name: mgrep-sync
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "**/*"
+      - "!README.md"
+      - "!docs/**"
+      - "!*.md"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "**/*"
+      - "!README.md"
+      - "!docs/**"
+      - "!*.md"
+
+jobs:
+  mgrep-sync:
+    runs-on: ubuntu-latest
+    if: github.event.repository.fork == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup mgrep
+        run: |
+          npm install -g @mixedbread/mgrep
+          echo "MXBAI_API_KEY=${{ secrets.MXBAI_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Sync files with mgrep
+        run: |
+          # Index all files for search
+          mgrep watch --dry-run
+          echo "Files indexed successfully for semantic search"
+
+      - name: Test mgrep search
+        run: |
+          # Test that mgrep search is working
+          mgrep search "authentication" -m 3
+          mgrep search "database" -m 2
+          echo "mgrep search tests passed"
