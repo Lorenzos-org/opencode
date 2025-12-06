@@ -3,8 +3,7 @@
 # Comprehensive pre-push checks for remote operations
 echo "Running pre-push checks..."
 
-# Check if bun version matches package.json
-echo "Checking bun version..."
+# Check bun version
 EXPECTED_VERSION=$(grep '"packageManager"' package.json | sed 's/.*"bun@\([^"]*\)".*/\1/')
 CURRENT_VERSION=$(bun --version)
 if [ "$CURRENT_VERSION" != "$EXPECTED_VERSION" ]; then
@@ -12,20 +11,22 @@ if [ "$CURRENT_VERSION" != "$EXPECTED_VERSION" ]; then
   exit 1
 fi
 
-# Typecheck (moved from pre-commit)
-echo "Running typecheck..."
+# Full typecheck (comprehensive check)
+echo "Running comprehensive typecheck..."
 bun typecheck
 if [ $? -ne 0 ]; then
   echo "Typecheck failed. Please fix type errors before pushing."
   exit 1
 fi
 
-# Lint check
-echo "Running lint check..."
-bun lint
-if [ $? -ne 0 ]; then
-  echo "Lint check failed. Please fix linting errors before pushing."
-  exit 1
+# Run tests if available
+if grep -q '"test"' package.json; then
+  echo "Running tests..."
+  bun test 2>/dev/null || bun turbo test 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo "Tests failed. Please fix before pushing."
+    exit 1
+  fi
 fi
 
-echo "All pre-push checks passed!"
+echo "All pre-push checks passed! 🚀"

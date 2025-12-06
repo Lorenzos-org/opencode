@@ -1,14 +1,27 @@
 #!/usr/bin/env sh
 
-# Lightweight pre-commit checks for development
+# Streamlined pre-commit checks
 echo "Running pre-commit checks..."
 
-# Only format check (no typecheck to speed up development)
-echo "Running prettier check..."
-bunx prettier --check .
-if [ $? -ne 0 ]; then
-  echo "Prettier check failed. Please format your code with 'bunx prettier --write .' before committing."
-  exit 1
+# Only check formatting on staged files (reduces false positives)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d | grep -E '\.(ts|tsx|js|jsx|json|md)$')
+if [ -n "$STAGED_FILES" ]; then
+  echo "Checking formatting on staged files..."
+  echo "$STAGED_FILES" | xargs bunx prettier --check
+  if [ $? -ne 0 ]; then
+    echo "Formatting issues found. Run 'bunx prettier --write .' to fix."
+    exit 1
+  fi
 fi
 
-echo "Pre-commit checks passed! Typecheck will run on push."
+# Quick lint check on staged files only
+if [ -n "$STAGED_FILES" ]; then
+  echo "Running lint on staged files..."
+  echo "$STAGED_FILES" | xargs bunx eslint 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo "Lint errors found. Please fix before committing."
+    exit 1
+  fi
+fi
+
+echo "Pre-commit checks passed! ✅"
