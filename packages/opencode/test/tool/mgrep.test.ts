@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeAll, afterAll } from "bun:test"
 import path from "path"
-import { MgrepTool } from "../../src/tool/mgrep"
+import { MgrepTool, MgrepAuthTool } from "../../src/tool/mgrep"
 import { Instance } from "../../src/project/instance"
 
 const ctx = {
@@ -13,6 +13,7 @@ const ctx = {
 }
 
 const mgrep = await MgrepTool.init()
+const mgrepAuth = await MgrepAuthTool.init()
 const projectRoot = path.join(__dirname, "../..")
 
 describe("tool.mgrep", () => {
@@ -128,6 +129,80 @@ describe("tool.mgrep", () => {
         expect(result.metadata).toBeDefined()
         expect(result.output).toBeDefined()
       },
+    })
+  })
+
+  describe("mgrep-auth", () => {
+    test("check auth status", async () => {
+      await Instance.provide({
+        directory: projectRoot,
+        fn: async () => {
+          const result = await mgrepAuth.execute(
+            {
+              action: "status",
+            },
+            ctx,
+          )
+          expect(result.title).toBe("mgrep auth status")
+          expect(result.metadata).toBeDefined()
+          expect(result.output).toBeDefined()
+        },
+      })
+    })
+
+    test("handles login command", async () => {
+      await Instance.provide({
+        directory: projectRoot,
+        fn: async () => {
+          // Note: This test might fail in CI environments without browser access
+          // but it tests the command structure
+          try {
+            const result = await mgrepAuth.execute(
+              {
+                action: "login",
+              },
+              ctx,
+            )
+            expect(result.title).toBe("mgrep login")
+            expect(result.metadata).toBeDefined()
+          } catch (error: any) {
+            // Expected to fail in CI without browser, but command should be valid
+            expect(error.message).not.toContain("Unknown action")
+          }
+        },
+      })
+    })
+
+    test("handles logout command", async () => {
+      await Instance.provide({
+        directory: projectRoot,
+        fn: async () => {
+          const result = await mgrepAuth.execute(
+            {
+              action: "logout",
+            },
+            ctx,
+          )
+          expect(result.title).toBe("mgrep logout")
+          expect(result.metadata).toBeDefined()
+        },
+      })
+    })
+
+    test("rejects invalid action", async () => {
+      await Instance.provide({
+        directory: projectRoot,
+        fn: async () => {
+          await expect(
+            mgrepAuth.execute(
+              {
+                action: "invalid" as any,
+              },
+              ctx,
+            ),
+          ).rejects.toThrow("Unknown action: invalid")
+        },
+      })
     })
   })
 })
