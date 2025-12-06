@@ -1,17 +1,9 @@
 #!/usr/bin/env sh
 
-# Pre-commit quality gates
+# Lightweight pre-commit checks for development
 echo "Running pre-commit checks..."
 
-# Typecheck
-echo "Running typecheck..."
-bun typecheck
-if [ $? -ne 0 ]; then
-  echo "Typecheck failed. Please fix type errors before committing."
-  exit 1
-fi
-
-# Prettier check
+# Only format check (no typecheck to speed up development)
 echo "Running prettier check..."
 bunx prettier --check .
 if [ $? -ne 0 ]; then
@@ -19,4 +11,4 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-echo "All pre-commit checks passed!"
+echo "Pre-commit checks passed! Typecheck will run on push."

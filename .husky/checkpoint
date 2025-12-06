@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# Lightweight checkpoint hook for development sprints
+# Only runs basic formatting checks to allow quick checkpointing
+
+echo "Running development checkpoint checks..."
+
+# Quick prettier check (no validation, just format if needed)
+echo "Quick format check..."
+bunx prettier --write . --ignore-unknown
+
+echo "Development checkpoint completed! Use 'git push' for full checks."
