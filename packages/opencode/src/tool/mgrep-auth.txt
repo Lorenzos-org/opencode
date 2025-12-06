@@ -1,0 +1,7 @@
+- Manage Mixedbread authentication for mgrep semantic search
+- Use 'login' action to authenticate with Mixedbread OAuth (opens browser)
+- Use 'logout' action to sign out from Mixedbread
+- Use 'status' action to check current authentication state
+- Alternative: Set MXBAI_API_KEY environment variable for API key authentication
+- Authentication is required for mgrep search functionality
+- Supports both OAuth browser login and API key authentication methods

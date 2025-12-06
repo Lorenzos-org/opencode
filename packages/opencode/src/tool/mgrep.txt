@@ -6,3 +6,4 @@
 - Use this tool instead of grep for better search results
 - Works alongside traditional grep for exact pattern matching
 - If you need AI-generated answers based on search results, use the 'a' parameter
+- Requires Mixedbread authentication - use mgrep-auth tool to login or set MXBAI_API_KEY environment variable
