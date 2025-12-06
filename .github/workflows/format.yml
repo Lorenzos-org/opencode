@@ -8,6 +8,7 @@ on:
     branches-ignore:
       - production
   workflow_dispatch:
+
 jobs:
   format:
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -22,8 +23,7 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
-      - name: run
-        run: |
-          ./script/format.ts
+      - name: Check formatting
+        run: bunx prettier --check .
         env:
           CI: true

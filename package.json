@@ -11,6 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "prepare": "husky",
+    "checkpoint": "git run hook checkpoint",
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'"
   },
