@@ -27,7 +27,7 @@
       "@types/luxon": "3.7.1",
       "@types/node": "22.13.9",
       "@tsconfig/node22": "22.0.2",
-      "@tsconfig/bun": "1.0.9",
+      "@tsconfig/bun": "1.0.11",
       "@cloudflare/workers-types": "4.20251008.0",
       "@openauthjs/openauth": "0.0.0-20250322224806",
       "@pierre/precision-diffs": "0.6.1",
@@ -56,12 +56,12 @@
   "devDependencies": {
     "@tsconfig/bun": "catalog:",
     "husky": "9.1.7",
-    "prettier": "3.6.2",
+    "prettier": "3.9.10",
     "sst": "3.17.23",
-    "turbo": "2.5.6"
+    "turbo": "2.11.7"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.933.0",
+    "@aws-sdk/client-s3": "3.1149.0",
     "@opencode-ai/script": "workspace:*",
     "@opencode-ai/sdk": "workspace:*",
     "typescript": "catalog:"
