@@ -4,17 +4,22 @@ on:
   issues:
     types: [opened]
 
+concurrency:
+  group: auto-label-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   auto-label:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      issues: write
     steps:
       - name: Auto-label and assign issues
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: [redacted]
           script: |
             const issue = context.payload.issue;
             const title = issue.title;

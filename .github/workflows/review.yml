@@ -4,6 +4,15 @@ on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: review-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
 jobs:
   check-guidelines:
     if: |
@@ -11,9 +20,6 @@ jobs:
       startsWith(github.event.comment.body, '/review') &&
       contains(fromJson('["OWNER","MEMBER"]'), github.event.comment.author_association)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Get PR number
         id: pr-number
@@ -39,16 +45,16 @@ jobs:
           echo "title=$(jq -r .title pr_data.json)" >> $GITHUB_OUTPUT
           echo "sha=$(jq -r .head.sha pr_data.json)" >> $GITHUB_OUTPUT
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: [redacted]
 
       - name: Check PR guidelines compliance
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: [redacted]
+          GITHUB_TOKEN: [redacted]
           OPENCODE_PERMISSION: '{ "bash": { "gh*": "allow", "gh pr review*": "deny", "*": "deny" } }'
           PR_TITLE: ${{ steps.pr-details.outputs.title }}
         run: |
-          PR_BODY=$(jq -r .body pr_data.json)
+          PR_BODY=[redacted]
           opencode run -m anthropic/claude-opus-4-5 "A new pull request has been created: '${PR_TITLE}'
 
           <pr-number>

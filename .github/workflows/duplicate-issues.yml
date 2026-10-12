@@ -4,12 +4,17 @@ on:
   issues:
     types: [opened]
 
+concurrency:
+  group: duplicate-check-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check-duplicates:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,8 +26,8 @@ jobs:
 
       - name: Check for duplicate issues
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_API_KEY: [redacted]
+          GITHUB_TOKEN: [redacted]
           OPENCODE_PERMISSION: |
             {
               "bash": {

@@ -16,6 +16,10 @@ on:
       - "package.json"
       - "packages/*/package.json"
 
+concurrency:
+  group: update-nix-hashes-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -27,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: [redacted]
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -76,8 +80,8 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
           }
 
-          FILES=(flake.lock flake.nix nix/node-modules.nix nix/hashes.json)
-          STATUS="$(git status --short -- "${FILES[@]}" || true)"
+          FILES=[redacted]
+          STATUS=[redacted]${FILES[@]}" || true)"
           if [ -z "$STATUS" ]; then
             echo "✅ No changes detected. Hashes are already up to date."
             summarize "no changes"
@@ -92,7 +96,7 @@ jobs:
           git commit -m "Update Nix flake.lock and hashes"
           echo "✅ Changes committed"
 
-          BRANCH="${TARGET_BRANCH:-${GITHUB_REF_NAME}}"
+          BRANCH=[redacted]
           echo "🌳 Pulling latest from branch: $BRANCH"
           git pull --rebase origin "$BRANCH"
           echo "🚀 Pushing changes to branch: $BRANCH"

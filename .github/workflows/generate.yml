@@ -9,18 +9,24 @@ on:
       - production
   workflow_dispatch:
 
+concurrency:
+  group: generate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
 jobs:
   generate:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: [redacted]
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 1
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun

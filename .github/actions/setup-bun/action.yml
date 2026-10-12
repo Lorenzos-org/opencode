@@ -7,16 +7,21 @@ runs:
       uses: oven-sh/setup-bun@v2
       with:
         bun-version-file: package.json
+        cache: true
 
-    - name: Cache ~/.bun
-      id: cache-bun
+    - name: Cache node_modules
+      id: cache-node-modules
       uses: actions/cache@v4
       with:
-        path: ~/.bun
-        key: ${{ runner.os }}-bun-${{ hashFiles('package.json') }}-${{ hashFiles('bun.lockb', 'bun.lock') }}
+        path: |
+          ~/.bun
+          node_modules
+          packages/*/node_modules
+        key: ${{ runner.os }}-bun-${{ hashFiles('package.json') }}-${{ hashFiles('bun.lockb', 'bun.lock', 'packages/*/package.json') }}
         restore-keys: |
           ${{ runner.os }}-bun-${{ hashFiles('package.json') }}-
 
     - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
       run: bun install
       shell: bash
